@@ -1,0 +1,164 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id           String        @id @default(uuid())
+  email        String        @unique
+  password     String
+  name         String
+  role         UserRole      @default(operator)
+  isActive     Boolean       @default(true) @map("is_active")
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+  accounts     Account[]
+  sessions     Session[]
+  transactions Transaction[]
+
+  @@map("users")
+}
+
+model Roll {
+  id           String        @id @default(uuid())
+  rollName     String        @map("roll_name")
+  heightCm     Decimal       @map("height_cm") @db.Decimal(10, 2)
+  quantity     Int
+  path         String?
+  status       RollStatus    @default(Processed)
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+  transactions Transaction[]
+
+  @@map("rolls")
+}
+
+model Transaction {
+  id                 String              @id @default(uuid())
+  rollId             String              @map("roll_id")
+  transactionDate    DateTime            @map("transaction_date") @db.Date
+  quantity           Int?                @default(1)
+  numberOfDetails    Int?                @default(0) @map("number_of_details")
+  printWidth         Decimal?            @map("print_width") @db.Decimal(5, 2)
+  printHeight        Decimal?            @map("print_height") @db.Decimal(5, 2)
+  labelHeight        Decimal?            @map("label_height") @db.Decimal(5, 2)
+  labelSizePresetId  String?             @map("label_size_preset_id")
+  path               String?
+  status             RollStatus          @default(Processed)
+  createdBy          String?             @map("created_by")
+  createdAt          DateTime            @default(now()) @map("created_at")
+  updatedAt          DateTime            @updatedAt @map("updated_at")
+  user               User?               @relation(fields: [createdBy], references: [id])
+  roll               Roll                @relation(fields: [rollId], references: [id], onDelete: Cascade)
+  labelSizePreset    LabelSizePreset?    @relation(fields: [labelSizePresetId], references: [id])
+  details            TransactionDetail[]
+
+  @@map("transactions")
+}
+
+model TransactionDetail {
+  id            String              @id @default(uuid())
+  transactionId String              @map("transaction_id")
+  name          String
+  fontId        String?             @map("font_id")
+  backgroundId  String?             @map("background_id")
+  quantity      Int                 @default(1)
+  sortOrder     Int                 @default(0) @map("sort_order")
+  createdAt     DateTime            @default(now()) @map("created_at")
+  transaction   Transaction         @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  font          MaterialFont?       @relation(fields: [fontId], references: [id], onDelete: SetNull)
+  background    MaterialBackground? @relation(fields: [backgroundId], references: [id], onDelete: SetNull)
+
+  @@map("transaction_details")
+}
+
+model MaterialFont {
+  id                 String              @id @default(uuid())
+  name               String              @unique
+  filePath           String?             @map("file_path")
+  fontFamily         String?             @map("font_family")
+  createdAt          DateTime            @default(now()) @map("created_at")
+  updatedAt          DateTime            @updatedAt @map("updated_at")
+  transactionDetails TransactionDetail[]
+
+  @@map("materials_fonts")
+}
+
+model MaterialBackground {
+  id                 String              @id @default(uuid())
+  name               String              @unique
+  imagePath          String?             @map("image_path")
+  fontColor          String              @default("#FFFFFF") @map("font_color")
+  createdAt          DateTime            @default(now()) @map("created_at")
+  updatedAt          DateTime            @updatedAt @map("updated_at")
+  transactionDetails TransactionDetail[]
+
+  @@map("materials_backgrounds")
+}
+
+model LabelSizePreset {
+  id           String        @id @default(uuid())
+  name         String        @unique
+  printWidth   Decimal       @map("print_width") @db.Decimal(5, 2)
+  printHeight  Decimal       @map("print_height") @db.Decimal(5, 2)
+  labelHeight  Decimal       @map("label_height") @db.Decimal(5, 2)
+  isDefault    Boolean       @default(false) @map("is_default")
+  createdAt    DateTime      @default(now()) @map("created_at")
+  transactions Transaction[]
+
+  @@map("label_size_presets")
+}
+
+model Account {
+  id                String  @id @default(uuid())
+  userId            String  @map("user_id")
+  type              String
+  provider          String
+  providerAccountId String  @map("provider_account_id")
+  refresh_token     String? @map("refresh_token")
+  access_token      String? @map("access_token")
+  expires_at        Int?    @map("expires_at")
+  token_type        String? @map("token_type")
+  scope             String?
+  id_token          String? @map("id_token")
+  session_state     String? @map("session_state")
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  sessionToken String   @unique @map("session_token")
+  userId       String   @map("user_id")
+  expires      DateTime
+  createdAt    DateTime @default(now()) @map("created_at")
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+enum UserRole {
+  admin
+  operator
+}
+
+enum RollStatus {
+  Processed
+  Failed
+  Completed
+}

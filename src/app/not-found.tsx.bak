@@ -1,0 +1,21 @@
+
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { FileQuestion } from "lucide-react";
+
+export default function NotFoundPage() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-slate-950 p-4">
+      <div className="text-center">
+        <FileQuestion className="mx-auto h-16 w-16 text-slate-400" />
+        <h1 className="mt-4 text-2xl font-bold text-white">Halaman Tidak Ditemukan</h1>
+        <p className="mt-2 text-slate-400">
+          Halaman yang Anda cari tidak tersedia.
+        </p>
+        <Link href="/dashboard">
+          <Button className="mt-6">Kembali ke Dashboard</Button>
+        </Link>
+      </div>
+    </div>
+  );
+}
