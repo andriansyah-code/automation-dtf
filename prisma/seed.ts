@@ -83,7 +83,10 @@ async function main() {
   }
   console.log("  " + backgrounds.length + " backgrounds seeded");
 
-  // Seed label size presets (ukuran paten)
+  // ⚠️ PRODUCTION-CRITICAL — JANGAN DIUBAH TANPA APPROVAL OWNER.
+  // Nilai preset di bawah menentukan dimensi cetak fisik label DTF.
+  // Setiap perubahan printWidth, printHeight, labelHeight, atau isDefault
+  // dapat merusak hasil cetak produksi. Lihat audit CRE-3 dan issue CRE-4.
   const presets = [
     { name: "Standard",     printWidth: 5.0,  printHeight: 5.0,  labelHeight: 1.0,  isDefault: true  },
     { name: "Mini",         printWidth: 4.0,  printHeight: 4.0,  labelHeight: 0.8,  isDefault: false },
