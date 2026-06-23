@@ -8,6 +8,8 @@
  * Lihat audit CRE-3 dan issue CRE-4 untuk daftar dimensi yang dikunci.
  */
 
+import path from "path";
+
 // ⚠️ PRODUCTION-CRITICAL: resolusi cetak.
 export const DPI = 300;
 
@@ -34,8 +36,8 @@ export const MAX_TEXT_WIDTH_RATIO = 0.86;
 // ⚠️ PRODUCTION-CRITICAL: format output gambar.
 export const OUTPUT_FORMAT = "image/png";
 
-// ⚠️ PRODUCTION-CRITICAL: direktori output relatif.
-export const OUTPUT_DIR = "public/output";
+// ⚠️ PRODUCTION-CRITICAL: direktori output absolut.
+export const OUTPUT_DIR = path.join(process.cwd(), "public", "output");
 
 // ⚠️ PRODUCTION-CRITICAL: warna latar halaman (putih).
 export const PAGE_BG_COLOR = "#FFFFFF";
