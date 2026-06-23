@@ -10,19 +10,24 @@ import {
 import path from "path";
 import fs from "fs";
 
+import {
+  CM_TO_PX,
+  PAGE_WIDTH_PX,
+  PAGE_HEIGHT_PX,
+  MAX_FONT_RATIO,
+  MIN_FONT_SIZE_PX,
+  MAX_TEXT_WIDTH_RATIO,
+  OUTPUT_FORMAT,
+  OUTPUT_DIR,
+  PAGE_BG_COLOR,
+  FALLBACK_DARK_BG,
+  FALLBACK_LIGHT_BG,
+} from "./print-spec";
+
 // ─── Constants ──────────────────────────────────────────────────────────────
 
-const DPI = 300;
-const CM_TO_PX = DPI / 2.54; // 1 cm ≈ 118.11 px at 300 DPI
-
-// A4 at 300 DPI
-const PAGE_WIDTH_PX  = Math.round(21.0 * CM_TO_PX); // 2480 px
-const PAGE_HEIGHT_PX = Math.round(29.7 * CM_TO_PX); // 3508 px
-
-const OUTPUT_DIR     = path.join(process.cwd(), "public", "output");
 const FONTS_DIR      = path.join(process.cwd(), "public", "fonts");
 const BACKGROUNDS_DIR = path.join(process.cwd(), "public", "backgrounds");
-
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export interface LabelDetail {
@@ -110,10 +115,10 @@ async function drawLabel(
   }
 
   // 2. Fit font size (max 60% of label height, min 8px)
-  const maxFontPx = Math.floor(labelH * 0.60);
-  const minFontPx = 8;
+  const maxFontPx = Math.floor(labelH * MAX_FONT_RATIO);
+  const minFontPx = MIN_FONT_SIZE_PX;
   let fontSize = Math.max(minFontPx, maxFontPx);
-  const maxTextWidth = labelW * 0.86;
+  const maxTextWidth = labelW * MAX_TEXT_WIDTH_RATIO;
 
   ctx.textBaseline = "middle";
   ctx.fillStyle = fontColor;
@@ -181,8 +186,8 @@ export async function generateLabels(opts: GenerateOptions): Promise<GenerateRes
     const bgImage    = d.backgroundImagePath ? (bgCache.get(d.backgroundImagePath) ?? null) : null;
     // Determine a sensible fallback color for when no background image exists
     const bgFallback = fontColor === "#FFFFFF" || fontColor.toLowerCase() === "#ffffff"
-      ? "#1a1a2e"
-      : "#f5f5f5";
+      ? FALLBACK_DARK_BG
+      : FALLBACK_LIGHT_BG;
 
     const count = d.quantity * cols;
     for (let i = 0; i < count; i++) {
@@ -205,7 +210,7 @@ export async function generateLabels(opts: GenerateOptions): Promise<GenerateRes
     const ctx = canvas.getContext("2d");
 
     // White page background
-    ctx.fillStyle = "#FFFFFF";
+    ctx.fillStyle = PAGE_BG_COLOR;
     ctx.fillRect(0, 0, PAGE_WIDTH_PX, PAGE_HEIGHT_PX);
 
     const startCell = pageIdx * rowsPerPage * cols;
@@ -235,7 +240,7 @@ export async function generateLabels(opts: GenerateOptions): Promise<GenerateRes
       ? "output.png"
       : `output_page${pageIdx + 1}.png`;
 
-    const buffer = canvas.toBuffer("image/png");
+    const buffer = canvas.toBuffer(OUTPUT_FORMAT);
     fs.writeFileSync(path.join(txOutDir, pageFile), buffer);
     outputFiles.push(pageFile);
   }
