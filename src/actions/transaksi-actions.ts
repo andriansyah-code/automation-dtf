@@ -120,7 +120,7 @@ export async function updateTransaction(id: string, data: UpdateTransactionInput
  *
  * Path safety:
  * - Target directory is built from OUTPUT_DIR (centralized constant) + transaction ID.
- * - Resolved target is validated to be inside resolved OUTPUT_DIR.
+ * - Resolved target must be strictly inside resolved OUTPUT_DIR (base dir itself is rejected).
  * - No raw user-provided path is ever used for filesystem deletion.
  * - fs.rm with force: true silently skips non-existent directories.
  */
@@ -146,7 +146,7 @@ export async function deleteTransaction(id: string) {
     const targetDir = path.resolve(outputBase, id);
 
     // Path traversal guard: ensure target is strictly inside the base output directory.
-    if (!targetDir.startsWith(outputBase + path.sep) && targetDir !== outputBase) {
+    if (!targetDir.startsWith(outputBase + path.sep)) {
       console.error(
         `[CRE-6] Path safety violation — target "${targetDir}" is outside base "${outputBase}". Skipping cleanup.`
       );
