@@ -7,7 +7,7 @@ import { revalidatePath } from "next/cache";
 import fs from "fs/promises";
 import path from "path";
 
-import { requireAuth, safeError } from "@/lib/auth-helpers";
+import { requireAuth, requireAdmin, safeError } from "@/lib/auth-helpers";
 import { OUTPUT_DIR } from "@/lib/print-spec";
 
 const createTransactionSchema = z.object({
@@ -72,8 +72,11 @@ export async function createTransaction(data: CreateTransactionInput) {
 
 export async function updateTransaction(id: string, data: UpdateTransactionInput) {
   try {
-    await requireAuth();
+    await requireAdmin();
   } catch (err) {
+    if (err instanceof Error && err.message === 'Forbidden') {
+      return { error: 'Hanya admin yang dapat menghapus transaksi.' };
+    }
     return { error: safeError(err) };
   }
 
@@ -123,11 +126,18 @@ export async function updateTransaction(id: string, data: UpdateTransactionInput
  * - Resolved target must be strictly inside resolved OUTPUT_DIR (base dir itself is rejected).
  * - No raw user-provided path is ever used for filesystem deletion.
  * - fs.rm with force: true silently skips non-existent directories.
+ *
+ * Authorization:
+ * - Only users with role "admin" may delete transactions.
+ * - Unauthenticated and non-admin requests are rejected with safe error messages.
  */
 export async function deleteTransaction(id: string) {
   try {
-    await requireAuth();
+    await requireAdmin();
   } catch (err) {
+    if (err instanceof Error && err.message === "Forbidden") {
+      return { error: "Hanya admin yang dapat menghapus transaksi." };
+    }
     return { error: safeError(err) };
   }
 

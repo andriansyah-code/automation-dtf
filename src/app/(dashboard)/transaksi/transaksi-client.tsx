@@ -161,6 +161,7 @@ export function TransaksiClient({
   currentPage, totalPages, totalCount,
   selectedRollId: initialRollId, statusFilter: initialStatus,
   startDate: initialStartDate, endDate: initialEndDate,
+  userRole,
 }: Props) {
   const router = useRouter();
 
@@ -617,10 +618,12 @@ export function TransaksiClient({
                           className="text-slate-400 hover:text-white hover:bg-slate-800">
                           <Pencil className="h-3.5 w-3.5" />
                         </Button>
-                        <Button variant="ghost" size="icon-xs" onClick={() => openDeleteDialog(tx)}
-                          className="text-red-400 hover:text-red-300 hover:bg-red-900/20">
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
+                        {userRole === "admin" && (
+                          <Button variant="ghost" size="icon-xs" onClick={() => openDeleteDialog(tx)}
+                            className="text-red-400 hover:text-red-300 hover:bg-red-900/20">
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
