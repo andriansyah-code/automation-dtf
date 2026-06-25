@@ -9,7 +9,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -163,14 +162,14 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               </Avatar>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-56 bg-slate-900 text-white border-slate-800" align="end">
-              <DropdownMenuLabel>
+              <div className="px-1.5 py-1">
                 <div className="flex flex-col">
                   <span>{user?.name || "User"}</span>
                   <span className="text-xs font-normal text-slate-400">
                     {user?.role === "admin" ? "Admin" : "Operator"}
                   </span>
                 </div>
-              </DropdownMenuLabel>
+              </div>
               <DropdownMenuSeparator className="bg-slate-800" />
               <DropdownMenuItem
                 className="text-red-400 focus:text-red-400 focus:bg-red-900/20"
