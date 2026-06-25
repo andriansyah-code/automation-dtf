@@ -4,7 +4,11 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 
+import fs from "fs/promises";
+import path from "path";
+
 import { requireAuth, safeError } from "@/lib/auth-helpers";
+import { OUTPUT_DIR } from "@/lib/print-spec";
 
 const createTransactionSchema = z.object({
   rollId: z.string().min(1, "Roll wajib dipilih"),
@@ -111,6 +115,15 @@ export async function updateTransaction(id: string, data: UpdateTransactionInput
   }
 }
 
+/**
+ * Deletes a transaction and cleans up its associated output directory.
+ *
+ * Path safety:
+ * - Target directory is built from OUTPUT_DIR (centralized constant) + transaction ID.
+ * - Resolved target must be strictly inside resolved OUTPUT_DIR (base dir itself is rejected).
+ * - No raw user-provided path is ever used for filesystem deletion.
+ * - fs.rm with force: true silently skips non-existent directories.
+ */
 export async function deleteTransaction(id: string) {
   try {
     await requireAuth();
@@ -120,12 +133,31 @@ export async function deleteTransaction(id: string) {
 
   try {
     await prisma.transaction.delete({ where: { id } });
-    revalidatePath("/transaksi");
-    return { success: true };
   } catch (err) {
     if (err instanceof Error) {
       return { error: safeError(err) };
     }
     return { error: "Gagal menghapus transaksi" };
   }
+
+  // CRE-6: Cleanup orphan output directory for this transaction.
+  try {
+    const outputBase = path.resolve(OUTPUT_DIR);
+    const targetDir = path.resolve(outputBase, id);
+
+    // Path traversal guard: ensure target is strictly inside the base output directory.
+    if (!targetDir.startsWith(outputBase + path.sep)) {
+      console.error(
+        `[CRE-6] Path safety violation — target "${targetDir}" is outside base "${outputBase}". Skipping cleanup.`
+      );
+    } else {
+      await fs.rm(targetDir, { recursive: true, force: true });
+    }
+  } catch (err) {
+    // Non-fatal: database delete already succeeded.
+    console.error(`[CRE-6] Gagal membersihkan folder output transaksi ${id}:`, err);
+  }
+
+  revalidatePath("/transaksi");
+  return { success: true };
 }
