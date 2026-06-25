@@ -713,8 +713,9 @@ export function TransaksiClient({
                     <Input type="number" step="0.1" value={createPrintWidth} onChange={(e) => setCreatePrintWidth(e.target.value)} className="border-slate-700 bg-slate-800 text-white h-8" placeholder="5.0" />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs text-slate-400">Tinggi Print (cm)</Label>
+                    <Label className="text-xs text-slate-400">Tinggi Print (metadata)</Label>
                     <Input type="number" step="0.1" value={createPrintHeight} onChange={(e) => setCreatePrintHeight(e.target.value)} className="border-slate-700 bg-slate-800 text-white h-8" placeholder="5.0" />
+                    <p className="text-[10px] leading-tight text-slate-500">Hanya metadata, tidak mempengaruhi output</p>
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs text-slate-400">Tinggi Label (cm)</Label>
@@ -831,8 +832,9 @@ export function TransaksiClient({
                   <Input type="number" step="0.1" value={editPrintWidth} onChange={(e) => setEditPrintWidth(e.target.value)} className="border-slate-700 bg-slate-800 text-white h-8" />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs text-slate-400">Tinggi Print (cm)</Label>
+                  <Label className="text-xs text-slate-400">Tinggi Print (metadata)</Label>
                   <Input type="number" step="0.1" value={editPrintHeight} onChange={(e) => setEditPrintHeight(e.target.value)} className="border-slate-700 bg-slate-800 text-white h-8" />
+                  <p className="text-[10px] leading-tight text-slate-500">Hanya metadata, tidak mempengaruhi output</p>
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs text-slate-400">Tinggi Label (cm)</Label>
