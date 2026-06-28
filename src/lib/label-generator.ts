@@ -9,11 +9,19 @@ import {
 } from "@napi-rs/canvas";
 import path from "path";
 import fs from "fs";
+import bwipjs from "bwip-js";
 
 import {
-  CM_TO_PX,
-  PAGE_WIDTH_PX,
-  PAGE_HEIGHT_PX,
+  MEDIA_WIDTH_PX,
+  LABEL_WIDTH_PX,
+  LABEL_HEIGHT_PX,
+  SPACING_HORIZONTAL_PX,
+  SPACING_VERTICAL_PX,
+  LABELS_PER_ROW,
+  LABELS_PER_PACK,
+  PAKET_HEIGHT_PX,
+  GAP_ANTAR_PAKET_PX,
+  BARCODE_WIDTH_PX,
   MAX_FONT_RATIO,
   MIN_FONT_SIZE_PX,
   MAX_TEXT_WIDTH_RATIO,
@@ -26,8 +34,9 @@ import {
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
-const FONTS_DIR      = path.join(process.cwd(), "public", "fonts");
+const FONTS_DIR = path.join(process.cwd(), "public", "fonts");
 const BACKGROUNDS_DIR = path.join(process.cwd(), "public", "backgrounds");
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 export interface LabelDetail {
@@ -41,30 +50,27 @@ export interface LabelDetail {
 
 export interface GenerateOptions {
   transactionId: string;
-  printWidthCm: number;
-  labelHeightCm: number;
   details: LabelDetail[];
+  resiNumber?: string | null;
 }
 
 export interface GenerateResult {
-  outputPath: string;  // public URL e.g. /output/txid/output.png
+  outputPath: string;
   totalLabels: number;
   totalPages: number;
 }
 
 // ─── Font Registry ───────────────────────────────────────────────────────────
 
-const registeredFonts = new Map<string, string>(); // fontFamily → registered alias
+const registeredFonts = new Map<string, string>();
 
 function ensureFontRegistered(fontFamily: string, filePath: string): string {
   if (registeredFonts.has(fontFamily)) {
     return registeredFonts.get(fontFamily)!;
   }
-
   const absPath = path.isAbsolute(filePath)
     ? filePath
     : path.join(FONTS_DIR, filePath);
-
   if (fs.existsSync(absPath)) {
     GlobalFonts.registerFromPath(absPath, fontFamily);
     registeredFonts.set(fontFamily, fontFamily);
@@ -74,9 +80,6 @@ function ensureFontRegistered(fontFamily: string, filePath: string): string {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function cmToPx(cm: number): number {
-  return Math.round(cm * CM_TO_PX);
-}
 
 async function loadBackgroundImage(imgPath: string): Promise<Image | null> {
   try {
@@ -90,7 +93,19 @@ async function loadBackgroundImage(imgPath: string): Promise<Image | null> {
   }
 }
 
-/** Draw one label at position (x, y) on the canvas context */
+async function generateBarcodeImage(text: string, widthPx: number, heightPx: number): Promise<Image> {
+  const buffer = bwipjs.toBuffer({
+    bcid: "code128",
+    text,
+    scale: 3,
+    height: Math.round(heightPx / 3),
+    width: Math.round(widthPx / 3),
+    includetext: true,
+    textxalign: "center",
+  });
+  return await loadImage(buffer);
+}
+
 async function drawLabel(
   ctx: ReturnType<Canvas["getContext"]>,
   x: number,
@@ -106,7 +121,6 @@ async function drawLabel(
   ctx.save();
   ctx.translate(x, y);
 
-  // 1. Draw background (image or solid color fallback)
   if (bgImage) {
     ctx.drawImage(bgImage, 0, 0, labelW, labelH);
   } else {
@@ -114,7 +128,6 @@ async function drawLabel(
     ctx.fillRect(0, 0, labelW, labelH);
   }
 
-  // 2. Fit font size (max 60% of label height, min 8px)
   const maxFontPx = Math.floor(labelH * MAX_FONT_RATIO);
   const minFontPx = MIN_FONT_SIZE_PX;
   let fontSize = Math.max(minFontPx, maxFontPx);
@@ -142,35 +155,8 @@ async function drawLabel(
 // ─── Main Generator ───────────────────────────────────────────────────────────
 
 export async function generateLabels(opts: GenerateOptions): Promise<GenerateResult> {
-  const { transactionId, printWidthCm, labelHeightCm, details } = opts;
+  const { transactionId, details, resiNumber } = opts;
 
-  const labelW = cmToPx(printWidthCm);
-  const labelH = cmToPx(labelHeightCm);
-
-  // Grid layout
-  const cols = Math.max(1, Math.floor(PAGE_WIDTH_PX / labelW));
-  const rowsPerPage = Math.max(1, Math.floor(PAGE_HEIGHT_PX / labelH));
-
-  // Ensure output directory
-  const txOutDir = path.join(OUTPUT_DIR, transactionId);
-  fs.mkdirSync(txOutDir, { recursive: true });
-
-  // Register all custom fonts
-  for (const d of details) {
-    if (d.fontFamily && d.fontFilePath) {
-      ensureFontRegistered(d.fontFamily, d.fontFilePath);
-    }
-  }
-
-  // Pre-load background images (cached per path)
-  const bgCache = new Map<string, Image | null>();
-  for (const d of details) {
-    if (d.backgroundImagePath && !bgCache.has(d.backgroundImagePath)) {
-      bgCache.set(d.backgroundImagePath, await loadBackgroundImage(d.backgroundImagePath));
-    }
-  }
-
-  // Build flat label queue: quantity × cols cells per detail
   interface LabelCell {
     name: string;
     fontFamily: string;
@@ -179,18 +165,32 @@ export async function generateLabels(opts: GenerateOptions): Promise<GenerateRes
     bgFallback: string;
   }
 
+  for (const d of details) {
+    if (d.fontFamily && d.fontFilePath) {
+      ensureFontRegistered(d.fontFamily, d.fontFilePath);
+    }
+  }
+
+  const bgCache = new Map<string, Image | null>();
+  for (const d of details) {
+    if (d.backgroundImagePath && !bgCache.has(d.backgroundImagePath)) {
+      bgCache.set(d.backgroundImagePath, await loadBackgroundImage(d.backgroundImagePath));
+    }
+  }
+
   const queue: LabelCell[] = [];
   for (const d of details) {
     const fontFamily = d.fontFamily || "Arial";
-    const fontColor  = d.fontColor  || "#FFFFFF";
-    const bgImage    = d.backgroundImagePath ? (bgCache.get(d.backgroundImagePath) ?? null) : null;
-    // Determine a sensible fallback color for when no background image exists
-    const bgFallback = fontColor === "#FFFFFF" || fontColor.toLowerCase() === "#ffffff"
-      ? FALLBACK_DARK_BG
-      : FALLBACK_LIGHT_BG;
+    const fontColor = d.fontColor || "#FFFFFF";
+    const bgImage = d.backgroundImagePath
+      ? (bgCache.get(d.backgroundImagePath) ?? null)
+      : null;
+    const bgFallback =
+      fontColor === "#FFFFFF" || fontColor.toLowerCase() === "#ffffff"
+        ? FALLBACK_DARK_BG
+        : FALLBACK_LIGHT_BG;
 
-    const count = d.quantity * cols;
-    for (let i = 0; i < count; i++) {
+    for (let i = 0; i < d.quantity; i++) {
       queue.push({ name: d.name, fontFamily, fontColor, bgImage, bgFallback });
     }
   }
@@ -199,55 +199,70 @@ export async function generateLabels(opts: GenerateOptions): Promise<GenerateRes
     throw new Error("Tidak ada label untuk di-generate");
   }
 
-  const totalRows  = Math.ceil(queue.length / cols);
-  const totalPages = Math.max(1, Math.ceil(totalRows / rowsPerPage));
+  const labelsPerPaket = LABELS_PER_ROW * LABELS_PER_PACK;
+  const totalPackets = Math.ceil(queue.length / labelsPerPaket);
 
-  const outputFiles: string[] = [];
+  const canvasW = MEDIA_WIDTH_PX;
+  const canvasH =
+    totalPackets * PAKET_HEIGHT_PX + (totalPackets - 1) * GAP_ANTAR_PAKET_PX;
 
-  // Render page by page
-  for (let pageIdx = 0; pageIdx < totalPages; pageIdx++) {
-    const canvas = createCanvas(PAGE_WIDTH_PX, PAGE_HEIGHT_PX);
-    const ctx = canvas.getContext("2d");
-
-    // White page background
-    ctx.fillStyle = PAGE_BG_COLOR;
-    ctx.fillRect(0, 0, PAGE_WIDTH_PX, PAGE_HEIGHT_PX);
-
-    const startCell = pageIdx * rowsPerPage * cols;
-    const endCell   = Math.min(startCell + rowsPerPage * cols, queue.length);
-
-    for (let ci = startCell; ci < endCell; ci++) {
-      const local = ci - startCell;
-      const row   = Math.floor(local / cols);
-      const col   = local % cols;
-      const cell  = queue[ci];
-
-      await drawLabel(
-        ctx,
-        col * labelW,
-        row * labelH,
-        labelW,
-        labelH,
-        cell.name,
-        cell.fontFamily,
-        cell.fontColor,
-        cell.bgImage,
-        cell.bgFallback
+  let barcodeImg: Image | null = null;
+  if (resiNumber && resiNumber.trim()) {
+    try {
+      barcodeImg = await generateBarcodeImage(
+        resiNumber.trim(),
+        BARCODE_WIDTH_PX,
+        PAKET_HEIGHT_PX
       );
+    } catch (err) {
+      console.error("[LABEL-GEN] Failed to generate barcode:", err);
     }
-
-    const pageFile = totalPages === 1
-      ? "output.png"
-      : `output_page${pageIdx + 1}.png`;
-
-    const buffer = canvas.toBuffer(OUTPUT_FORMAT);
-    fs.writeFileSync(path.join(txOutDir, pageFile), buffer);
-    outputFiles.push(pageFile);
   }
 
+  const txOutDir = path.join(OUTPUT_DIR, transactionId);
+  fs.mkdirSync(txOutDir, { recursive: true });
+
+  const canvas = createCanvas(canvasW, canvasH);
+  const ctx = canvas.getContext("2d");
+
+  ctx.fillStyle = PAGE_BG_COLOR;
+  ctx.fillRect(0, 0, canvasW, canvasH);
+
+  const labelGridStartX = BARCODE_WIDTH_PX;
+
+  for (let pktIdx = 0; pktIdx < totalPackets; pktIdx++) {
+    const pktY = pktIdx * (PAKET_HEIGHT_PX + GAP_ANTAR_PAKET_PX);
+
+    if (barcodeImg) {
+      ctx.drawImage(barcodeImg, 0, pktY, BARCODE_WIDTH_PX, PAKET_HEIGHT_PX);
+    }
+
+    for (let row = 0; row < LABELS_PER_PACK; row++) {
+      for (let col = 0; col < LABELS_PER_ROW; col++) {
+        const cellIdx = pktIdx * labelsPerPaket + row * LABELS_PER_ROW + col;
+        if (cellIdx >= queue.length) break;
+
+        const cell = queue[cellIdx];
+        const lx = labelGridStartX + col * (LABEL_WIDTH_PX + SPACING_HORIZONTAL_PX);
+        const ly = pktY + row * (LABEL_HEIGHT_PX + SPACING_VERTICAL_PX);
+
+        await drawLabel(
+          ctx, lx, ly,
+          LABEL_WIDTH_PX, LABEL_HEIGHT_PX,
+          cell.name, cell.fontFamily, cell.fontColor,
+          cell.bgImage, cell.bgFallback
+        );
+      }
+    }
+  }
+
+  const pageFile = "output.png";
+  const buffer = canvas.toBuffer(OUTPUT_FORMAT);
+  fs.writeFileSync(path.join(txOutDir, pageFile), buffer);
+
   return {
-    outputPath:  `/output/${transactionId}/${outputFiles[0]}`,
+    outputPath: `/output/${transactionId}/${pageFile}`,
     totalLabels: queue.length,
-    totalPages,
+    totalPages: 1,
   };
 }

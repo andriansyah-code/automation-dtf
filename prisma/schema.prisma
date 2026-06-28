@@ -46,6 +46,7 @@ model Transaction {
   printWidth         Decimal?            @map("print_width") @db.Decimal(5, 2)
   printHeight        Decimal?            @map("print_height") @db.Decimal(5, 2)
   labelHeight        Decimal?            @map("label_height") @db.Decimal(5, 2)
+  resiNumber         String?             @map("resi_number")
   labelSizePresetId  String?             @map("label_size_preset_id")
   path               String?
   status             RollStatus          @default(Processed)

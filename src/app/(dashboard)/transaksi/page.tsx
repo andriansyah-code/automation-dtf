@@ -41,7 +41,7 @@ export default async function TransaksiPage({ searchParams }: PageProps) {
     };
   }
 
-  const [transactions, totalCount, rolls, fonts, backgrounds, labelSizePresets] =
+  const [transactions, totalCount, rolls, fonts, backgrounds] =
     await Promise.all([
       prisma.transaction.findMany({
         where,
@@ -74,9 +74,6 @@ export default async function TransaksiPage({ searchParams }: PageProps) {
         orderBy: { name: "asc" },
         select: { id: true, name: true, fontColor: true, imagePath: true },
       }),
-      prisma.labelSizePreset.findMany({
-        orderBy: [{ isDefault: "desc" }, { name: "asc" }],
-      }),
     ]);
 
   const totalPages = Math.ceil(totalCount / limit);
@@ -87,7 +84,6 @@ export default async function TransaksiPage({ searchParams }: PageProps) {
       rolls={JSON.parse(JSON.stringify(rolls))}
       fonts={JSON.parse(JSON.stringify(fonts))}
       backgrounds={JSON.parse(JSON.stringify(backgrounds))}
-      labelSizePresets={JSON.parse(JSON.stringify(labelSizePresets))}
       currentPage={page}
       totalPages={totalPages}
       totalCount={totalCount}

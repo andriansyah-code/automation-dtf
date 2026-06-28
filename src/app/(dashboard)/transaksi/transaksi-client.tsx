@@ -60,11 +60,6 @@ const formatDate = (d: string) =>
 interface Roll { id: string; rollName: string }
 interface Font { id: string; name: string; fontFamily: string | null; filePath: string | null }
 interface Background { id: string; name: string; fontColor: string; imagePath: string | null }
-interface LabelSizePreset {
-  id: string; name: string; isDefault: boolean;
-  printWidth: string; printHeight: string; labelHeight: string;
-}
-
 interface DetailRow {
   name: string;
   fontId: string;
@@ -77,6 +72,7 @@ interface Transaction {
   numberOfDetails: number | null;
   printWidth: string | null; printHeight: string | null;
   labelHeight: string | null; labelSizePresetId: string | null;
+  resiNumber: string | null;
   path: string | null; status: string;
   transactionDate: string; createdAt: string;
   roll: Roll;
@@ -88,7 +84,6 @@ interface Props {
   rolls: Roll[];
   fonts: Font[];
   backgrounds: Background[];
-  labelSizePresets: LabelSizePreset[];
   currentPage: number;
   totalPages: number;
   totalCount: number;
@@ -157,7 +152,7 @@ function DetailRowInput({
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export function TransaksiClient({
-  transactions, rolls, fonts, backgrounds, labelSizePresets,
+  transactions, rolls, fonts, backgrounds,
   currentPage, totalPages, totalCount,
   selectedRollId: initialRollId, statusFilter: initialStatus,
   startDate: initialStartDate, endDate: initialEndDate,
@@ -191,22 +186,14 @@ export function TransaksiClient({
   const [createRollId, setCreateRollId] = useState("");
   const [createDate, setCreateDate] = useState(new Date().toISOString().split("T")[0]);
   const [createQty, setCreateQty] = useState("1");
-  const [createPresetId, setCreatePresetId] = useState(
-    labelSizePresets.find((p) => p.isDefault)?.id ?? ""
-  );
-  const [createPrintWidth, setCreatePrintWidth] = useState("");
-  const [createPrintHeight, setCreatePrintHeight] = useState("");
-  const [createLabelHeight, setCreateLabelHeight] = useState("");
+  const [createResi, setCreateResi] = useState("");
   const [createDetails, setCreateDetails] = useState<DetailRow[]>([]);
 
   // Edit form
   const [editRollId, setEditRollId] = useState("");
   const [editDate, setEditDate] = useState("");
   const [editQty, setEditQty] = useState("");
-  const [editPresetId, setEditPresetId] = useState("");
-  const [editPrintWidth, setEditPrintWidth] = useState("");
-  const [editPrintHeight, setEditPrintHeight] = useState("");
-  const [editLabelHeight, setEditLabelHeight] = useState("");
+  const [editResi, setEditResi] = useState("");
   const [editStatus, setEditStatus] = useState("Processed");
   const [editDetails, setEditDetails] = useState<DetailRow[]>([]);
 
@@ -245,26 +232,6 @@ export function TransaksiClient({
   };
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
-
-  const applyPresetToCreate = (presetId: string) => {
-    const preset = labelSizePresets.find((p) => p.id === presetId);
-    if (preset) {
-      setCreatePrintWidth(preset.printWidth);
-      setCreatePrintHeight(preset.printHeight);
-      setCreateLabelHeight(preset.labelHeight);
-    }
-    setCreatePresetId(presetId);
-  };
-
-  const applyPresetToEdit = (presetId: string) => {
-    const preset = labelSizePresets.find((p) => p.id === presetId);
-    if (preset) {
-      setEditPrintWidth(preset.printWidth);
-      setEditPrintHeight(preset.printHeight);
-      setEditLabelHeight(preset.labelHeight);
-    }
-    setEditPresetId(presetId);
-  };
 
   const addDetailRow = (target: "create" | "edit") => {
     const emptyRow: DetailRow = { name: "", fontId: fonts[0]?.id ?? "", backgroundId: backgrounds[0]?.id ?? "", quantity: 1 };
@@ -309,10 +276,7 @@ export function TransaksiClient({
 
   const resetCreateForm = () => {
     setCreateRollId(""); setCreateDate(new Date().toISOString().split("T")[0]);
-    setCreateQty("1"); setCreateDetails([]);
-    const defaultPreset = labelSizePresets.find((p) => p.isDefault);
-    if (defaultPreset) applyPresetToCreate(defaultPreset.id);
-    else { setCreatePresetId(""); setCreatePrintWidth(""); setCreatePrintHeight(""); setCreateLabelHeight(""); }
+    setCreateQty("1"); setCreateResi(""); setCreateDetails([]);
   };
 
   // ─── CRUD Handlers ────────────────────────────────────────────────────────
@@ -336,10 +300,7 @@ export function TransaksiClient({
         transactionDate: createDate,
         quantity: parseInt(createQty) || 1,
         numberOfDetails: createDetails.length,
-        printWidth: createPrintWidth ? parseFloat(createPrintWidth) : null,
-        printHeight: createPrintHeight ? parseFloat(createPrintHeight) : null,
-        labelHeight: createLabelHeight ? parseFloat(createLabelHeight) : null,
-        labelSizePresetId: createPresetId || null,
+        resiNumber: createResi.trim() || null,
       });
 
       if (result.error || !result.id) {
@@ -375,10 +336,7 @@ export function TransaksiClient({
     setEditRollId(tx.rollId);
     setEditDate(tx.transactionDate.split("T")[0]);
     setEditQty((tx.quantity || 1).toString());
-    setEditPrintWidth(tx.printWidth || "");
-    setEditPrintHeight(tx.printHeight || "");
-    setEditLabelHeight(tx.labelHeight || "");
-    setEditPresetId(tx.labelSizePresetId || "");
+    setEditResi(tx.resiNumber || "");
     setEditStatus(tx.status);
     setEditDetails(tx.details?.map((d) => ({ ...d })) ?? []);
     setEditDialogOpen(true);
@@ -393,10 +351,7 @@ export function TransaksiClient({
         transactionDate: editDate,
         quantity: parseInt(editQty) || 1,
         numberOfDetails: editDetails.length,
-        printWidth: editPrintWidth ? parseFloat(editPrintWidth) : null,
-        printHeight: editPrintHeight ? parseFloat(editPrintHeight) : null,
-        labelHeight: editLabelHeight ? parseFloat(editLabelHeight) : null,
-        labelSizePresetId: editPresetId || null,
+        resiNumber: editResi.trim() || null,
         status: editStatus as "Processed" | "Failed" | "Completed",
       });
 
@@ -572,7 +527,6 @@ export function TransaksiClient({
                   <TableHead className="text-slate-400">Roll</TableHead>
                   <TableHead className="text-slate-400 text-center">Qty</TableHead>
                   <TableHead className="text-slate-400 text-center">Detail</TableHead>
-                  <TableHead className="text-slate-400">Ukuran Label</TableHead>
                   <TableHead className="text-slate-400">Status</TableHead>
                   <TableHead className="text-slate-400">Output</TableHead>
                   <TableHead className="text-slate-400 text-right">Aksi</TableHead>
@@ -590,11 +544,6 @@ export function TransaksiClient({
                           <Users className="mr-1 h-3 w-3" />{tx.numberOfDetails}
                         </Badge>
                       ) : <span className="text-slate-600 text-xs">—</span>}
-                    </TableCell>
-                    <TableCell className="text-slate-400 text-xs">
-                      {tx.printWidth && tx.labelHeight
-                        ? `${tx.printWidth}×${tx.labelHeight} cm`
-                        : <span className="text-slate-600">—</span>}
                     </TableCell>
                     <TableCell>{statusBadge(tx.status)}</TableCell>
                     <TableCell>
@@ -685,44 +634,19 @@ export function TransaksiClient({
               </div>
             </div>
 
-            {/* Row 2: Label Size Presets */}
+            {/* Row 2: Nomor Resi + Info Ukuran Fixed */}
             <div className="space-y-2">
-              <Label className="text-slate-300">Ukuran Label (Preset)</Label>
-              <div className="flex flex-wrap gap-2">
-                {labelSizePresets.map((p) => (
-                  <Button
-                    key={p.id}
-                    type="button"
-                    variant={createPresetId === p.id ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => applyPresetToCreate(p.id)}
-                    className={createPresetId === p.id ? "" : "border-slate-700 text-slate-300 hover:bg-slate-800"}
-                  >
-                    {p.name}
-                    <span className="ml-1.5 text-xs opacity-70">{p.printWidth}×{p.labelHeight}cm</span>
-                  </Button>
-                ))}
-                <Button type="button" variant="outline" size="sm" onClick={() => setCreatePresetId("")} className="border-slate-700 text-slate-300 hover:bg-slate-800">
-                  Custom
-                </Button>
-              </div>
-              {(!createPresetId || createPresetId === "") && (
-                <div className="grid grid-cols-3 gap-3 mt-2">
-                  <div className="space-y-1">
-                    <Label className="text-xs text-slate-400">Lebar Print (cm)</Label>
-                    <Input type="number" step="0.1" value={createPrintWidth} onChange={(e) => setCreatePrintWidth(e.target.value)} className="border-slate-700 bg-slate-800 text-white h-8" placeholder="5.0" />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs text-slate-400">Tinggi Print (metadata)</Label>
-                    <Input type="number" step="0.1" value={createPrintHeight} onChange={(e) => setCreatePrintHeight(e.target.value)} className="border-slate-700 bg-slate-800 text-white h-8" placeholder="5.0" />
-                    <p className="text-[10px] leading-tight text-slate-500">Hanya metadata, tidak mempengaruhi output</p>
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs text-slate-400">Tinggi Label (cm)</Label>
-                    <Input type="number" step="0.1" value={createLabelHeight} onChange={(e) => setCreateLabelHeight(e.target.value)} className="border-slate-700 bg-slate-800 text-white h-8" placeholder="1.0" />
-                  </div>
-                </div>
-              )}
+              <Label className="text-slate-300">Nomor Resi Customer</Label>
+              <Input
+                type="text"
+                value={createResi}
+                onChange={(e) => setCreateResi(e.target.value)}
+                placeholder="Masukkan nomor resi..."
+                className="border-slate-700 bg-slate-800 text-white"
+              />
+              <p className="text-xs text-slate-500">
+                📐 Ukuran label fixed: 5cm × 1,4cm | Media: 58cm | 1 paket = 50 pcs | Resi akan jadi barcode di output
+              </p>
             </div>
 
             {/* Row 3: Detail Nama */}
@@ -816,31 +740,17 @@ export function TransaksiClient({
             </div>
 
             <div className="space-y-2">
-              <Label className="text-slate-300">Ukuran Label (Preset)</Label>
-              <div className="flex flex-wrap gap-2">
-                {labelSizePresets.map((p) => (
-                  <Button key={p.id} type="button" variant={editPresetId === p.id ? "default" : "outline"} size="sm"
-                    onClick={() => applyPresetToEdit(p.id)}
-                    className={editPresetId === p.id ? "" : "border-slate-700 text-slate-300 hover:bg-slate-800"}>
-                    {p.name} <span className="ml-1.5 text-xs opacity-70">{p.printWidth}×{p.labelHeight}cm</span>
-                  </Button>
-                ))}
-              </div>
-              <div className="grid grid-cols-3 gap-3 mt-2">
-                <div className="space-y-1">
-                  <Label className="text-xs text-slate-400">Lebar Print (cm)</Label>
-                  <Input type="number" step="0.1" value={editPrintWidth} onChange={(e) => setEditPrintWidth(e.target.value)} className="border-slate-700 bg-slate-800 text-white h-8" />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs text-slate-400">Tinggi Print (metadata)</Label>
-                  <Input type="number" step="0.1" value={editPrintHeight} onChange={(e) => setEditPrintHeight(e.target.value)} className="border-slate-700 bg-slate-800 text-white h-8" />
-                  <p className="text-[10px] leading-tight text-slate-500">Hanya metadata, tidak mempengaruhi output</p>
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs text-slate-400">Tinggi Label (cm)</Label>
-                  <Input type="number" step="0.1" value={editLabelHeight} onChange={(e) => setEditLabelHeight(e.target.value)} className="border-slate-700 bg-slate-800 text-white h-8" />
-                </div>
-              </div>
+              <Label className="text-slate-300">Nomor Resi Customer</Label>
+              <Input
+                type="text"
+                value={editResi}
+                onChange={(e) => setEditResi(e.target.value)}
+                placeholder="Masukkan nomor resi..."
+                className="border-slate-700 bg-slate-800 text-white"
+              />
+              <p className="text-xs text-slate-500">
+                📐 Ukuran label fixed: 5cm × 1,4cm | Media: 58cm | 1 paket = 50 pcs
+              </p>
             </div>
 
             {/* Edit Details */}
@@ -899,9 +809,7 @@ export function TransaksiClient({
                   </p>
                   <p className="text-sm text-slate-300">
                     <span className="font-medium text-white">Ukuran:</span>{" "}
-                    {selectedTx?.printWidth && selectedTx?.labelHeight
-                      ? `${selectedTx.printWidth}×${selectedTx.labelHeight} cm`
-                      : "Belum diset"}
+                    5cm × 1,4cm (fixed)
                   </p>
                   <p className="text-sm text-slate-300">
                     <span className="font-medium text-white">Detail Nama:</span>{" "}
