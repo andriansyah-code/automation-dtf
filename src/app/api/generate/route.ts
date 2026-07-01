@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { generateLabels } from "@/lib/label-generator";
-import { DEFAULT_PRINT_WIDTH_CM, DEFAULT_LABEL_HEIGHT_CM } from "@/lib/print-spec";
 import path from "path";
 import fs from "fs";
 
@@ -53,11 +52,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Resolve dimensions (fallback to sensible defaults)
-    const printWidthCm = Number(tx.printWidth ?? DEFAULT_PRINT_WIDTH_CM);
-    const labelHeightCm = Number(tx.labelHeight ?? DEFAULT_LABEL_HEIGHT_CM);
-
-    // Build label detail array for generator
+    // Build label detail array for generator (CRE-12: fixed dimensions)
     const labelDetails = tx.details.map((d) => ({
       name: d.name,
       fontFamily: d.font?.fontFamily ?? d.font?.name ?? "Arial",
@@ -71,12 +66,11 @@ export async function POST(request: NextRequest) {
       quantity: d.quantity,
     }));
 
-    // Generate labels
+    // Generate labels with fixed production layout (CRE-12)
     const result = await generateLabels({
       transactionId,
-      printWidthCm,
-      labelHeightCm,
       details: labelDetails,
+      resiNumber: tx.resiNumber ?? null,
     });
 
     // Update transaction path and status

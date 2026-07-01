@@ -19,6 +19,7 @@ const createTransactionSchema = z.object({
   printHeight: z.coerce.number().positive().optional().nullable(),
   labelHeight: z.coerce.number().positive().optional().nullable(),
   labelSizePresetId: z.string().optional().nullable(),
+  resiNumber: z.string().optional().nullable(),
   path: z.string().optional().nullable(),
   status: z.enum(["Processed", "Failed", "Completed"]).optional(),
 });
@@ -54,6 +55,7 @@ export async function createTransaction(data: CreateTransactionInput) {
         printHeight: parsed.data.printHeight ?? null,
         labelHeight: parsed.data.labelHeight ?? null,
         labelSizePresetId: parsed.data.labelSizePresetId || null,
+        resiNumber: parsed.data.resiNumber ?? null,
         path: parsed.data.path || null,
         status: parsed.data.status || "Processed",
         createdBy: user.id ?? null,
@@ -99,6 +101,7 @@ export async function updateTransaction(id: string, data: UpdateTransactionInput
   if (parsed.data.labelHeight !== undefined) updateData.labelHeight = parsed.data.labelHeight;
   if (parsed.data.labelSizePresetId !== undefined)
     updateData.labelSizePresetId = parsed.data.labelSizePresetId || null;
+  if (parsed.data.resiNumber !== undefined) updateData.resiNumber = parsed.data.resiNumber;
   if (parsed.data.path !== undefined) updateData.path = parsed.data.path;
   if (parsed.data.status !== undefined) updateData.status = parsed.data.status;
 
